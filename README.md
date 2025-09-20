@@ -1,4 +1,4 @@
-## IF-Guide: Influence Function-Guided Detoxification of LLMs
+## IF-Guide: Influence Function-Guided Detoxification of LLMs [[NeurIPS 2025]](https://neurips.cc/virtual/2025/poster/117716)
 
 This repository contains the code for IF-Guide, the LLM detoxification technique introduced in our paper:
 
