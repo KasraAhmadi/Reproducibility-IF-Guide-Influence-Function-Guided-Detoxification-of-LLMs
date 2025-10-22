@@ -245,11 +245,12 @@ Credit for the RAD implementation we use belongs entirely to the authors of the 
 Please cite our work if you find this source code helpful.
 
 ```
-@article{coalson2025ifguide,
-  title={IF-Guide: Influence Function-Guided Detoxification of LLMs},
+@inproceedings{coalson2025ifguide,
+  title={{IF}-Guide: Influence Function-Guided Detoxification of {LLM}s},
   author={Coalson, Zachary and Bae, Juhan and Carlini, Nicholas and Hong, Sanghyun},
-  journal={arXiv preprint arXiv:2506.01790},
-  year={2025}
+  booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+  year={2025},
+  url={https://openreview.net/forum?id=V82wLePv0o}
 }
 ```
 
