@@ -105,6 +105,12 @@ def parse_args():
         default=False,
         help="Boolean flag to profile computations.",
     )
+    parser.add_argument(
+        "--max_train_samples",
+        type=int,
+        default=None,
+        help="Max number of training samples to score.",
+    )
 
     return parser.parse_args()
 
@@ -124,6 +130,8 @@ def main():
     model = construct_hf_model(config, checkpoint_dir=args.checkpoint_dir)
 
     train_indices = np.load(args.train_indices_path)
+    if args.max_train_samples is not None:
+        train_indices = train_indices[:args.max_train_samples]
     train_dataset = get_tokenized_openwebtext(config, train_indices)
 
     # Setup IF task
@@ -165,8 +173,8 @@ def main():
     factor_args.covariance_data_partitions = args.covariance_data_partitions
     factor_args.lambda_data_partitions = args.lambda_data_partitions
 
-    factor_args.covariance_max_examples = None  # No limit
-    factor_args.lambda_max_examples = None
+    factor_args.covariance_max_examples = 20000  # No limit
+    factor_args.lambda_max_examples = 20000
 
     analyzer.fit_all_factors(
         factors_name=factors_name,

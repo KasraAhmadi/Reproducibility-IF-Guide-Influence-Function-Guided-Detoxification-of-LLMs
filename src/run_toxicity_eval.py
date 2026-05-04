@@ -292,15 +292,18 @@ def main():
 
         logging.info(f"Selected {len(selected_indices)} prompts for evaluation")
 
+    print(0)
     # Repeat the dataset items for the number of return sequences (25 by default)
     eval_dset = repeat_dataset_items(eval_dset, args.num_return_sequences)
+    print(1)
     eval_loader = build_tokenized_loader(eval_dset, batch_size=args.batch_size)
-
+    print(2)
     # Generate completions
     completions = generate_completions(model, tokenizer, eval_loader)
-
+    print(3)
     # Classify completions
     toxicity_classifier = Detoxify(DETOXIFY_MODEL, device=device)
+    print(4)
     classifications = classify_completions(completions, toxicity_classifier, batch_size=args.batch_size)
 
     outputs = [

@@ -135,6 +135,20 @@ def parse_args():
         help="Path to the factors file.",
     )
 
+    parser.add_argument(
+        "--max_query_samples",
+        type=int,
+        default=None,
+        help="Max number of query samples to use (for faster runs).",
+    )
+
+    parser.add_argument(
+        "--max_train_samples",
+        type=int,
+        default=None,
+        help="Max number of training samples to score.",
+    )
+
     return parser.parse_args()
 
 
@@ -165,11 +179,21 @@ def main():
     model = construct_hf_model(config, args.checkpoint_dir)
 
     # Prepare the datasets
-    train_dataset = get_tokenized_openwebtext(config, np.load(args.train_indices_path))
+    train_indices = np.load(args.train_indices_path)
+    if args.max_train_samples is not None:
+        train_indices = train_indices[:args.max_train_samples]
+    train_dataset = get_tokenized_openwebtext(config, train_indices)
 
-    toxic_query_dataset = get_query_dataset(config, args.query_dataset, np.load(args.toxic_query_indices_path))
-    nontoxic_query_dataset = get_query_dataset(config, args.query_dataset, np.load(args.nontoxic_query_indices_path))
+    toxic_indices = np.load(args.toxic_query_indices_path)
+    nontoxic_indices = np.load(args.nontoxic_query_indices_path)
 
+    if args.max_query_samples is not None:
+        toxic_indices = toxic_indices[:args.max_query_samples]
+        nontoxic_indices = nontoxic_indices[:args.max_query_samples]
+
+    toxic_query_dataset = get_query_dataset(config, args.query_dataset, toxic_indices)
+    nontoxic_query_dataset = get_query_dataset(config, args.query_dataset, nontoxic_indices)
+    
     # Define task and prepare model
     task = LanguageModelingTask(config)
     model = prepare_model(model, task)

@@ -85,6 +85,19 @@ class LanguageModelingTask(Task):
                     total_modules.append(f"model.layers.{i}.self_attn.k_proj")
                     total_modules.append(f"model.layers.{i}.self_attn.v_proj")
                     total_modules.append(f"model.layers.{i}.self_attn.o_proj")
+                    
+        elif self.config['model']['family'] == "gpt-neo":
+            for i in range(num_layers):
+                # MLP
+                total_modules.append(f"transformer.h.{i}.mlp.c_fc")
+                total_modules.append(f"transformer.h.{i}.mlp.c_proj")
+
+                # Attention
+                total_modules.append(f"transformer.h.{i}.attn.attention.q_proj")
+                total_modules.append(f"transformer.h.{i}.attn.attention.k_proj")
+                total_modules.append(f"transformer.h.{i}.attn.attention.v_proj")
+                total_modules.append(f"transformer.h.{i}.attn.attention.out_proj")
+        
         else:
             raise NotImplementedError(
                 f"Model family {self.config['model']['family']} not supported for influence tracking."

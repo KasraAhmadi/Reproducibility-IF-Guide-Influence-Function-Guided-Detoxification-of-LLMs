@@ -94,6 +94,20 @@ def parse_args():
         help="Toxicity threshold for selecting toxic tokens."
     )
 
+    parser.add_argument(
+        "--max_train_samples",
+        type=int,
+        default=None,
+        help="Max number of training samples to score.",
+    )
+
+    parser.add_argument(
+        "--use_tfidf",
+        action="store_true",
+        default=False,
+        help="Apply TF-IDF weighting to influence scores before token selection.",
+)
+
     return parser.parse_args()
 
 
@@ -121,12 +135,48 @@ def harmonic_mean(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-6) -> torch.
     b = b.float()
     return 2 * a * b / (a + b + eps)
 
+def compute_document_frequencies(train_dataset, vocab_size: int) -> tuple[np.ndarray, int]:
+    """
+    Compute document frequencies from the training dataset.
+    Returns df_array (per token) and N (total docs).
+    """
+    df = np.zeros(vocab_size, dtype=np.int32)
+    N = len(train_dataset)
+    
+    for example in tqdm(train_dataset, desc="Computing document frequencies"):
+        token_ids = np.array(example["input_ids"])
+        unique_tokens = np.unique(token_ids)
+        df[unique_tokens] += 1
+    
+    return df, N
+
+def tfidf_weight_scores(
+    influence_scores: torch.Tensor,   # shape (num_samples, seq_len)
+    input_ids: torch.Tensor,          # shape (num_samples, seq_len)
+    df_array: np.ndarray,             # shape (vocab_size,)
+    N: int,
+) -> torch.Tensor:
+    """
+    Apply TF-IDF weighting: S'_ij = S_ij * log(N / (df_j + 1))
+    """
+    # Get IDF for every token position
+    ids_np = input_ids.cpu().numpy()                    # (B, T)
+    df_vals = df_array[ids_np]                          # (B, T)
+    idf_weights = np.log(N / (df_vals + 1))             # (B, T)
+    idf_weights = torch.tensor(idf_weights, dtype=influence_scores.dtype, device=influence_scores.device)
+    
+    return influence_scores * idf_weights
+
 
 def build_toxic_token_mask(
-    influence_scores: torch.Tensor,  # shape (num_samples, seq_len)
+    influence_scores: torch.Tensor,   # shape (num_samples, seq_len)
+    input_ids: torch.Tensor,          # shape (num_samples, seq_len) -- NEW
+    df_array: np.ndarray,             # shape (vocab_size,)          -- NEW
+    N: int,                           # total docs in corpus          -- NEW
     toxicity_threshold: float = 0.99,
     context_window: int = 5,
     max_tokens: int = 1_000_000,
+    use_tfidf: bool = True,           # toggle for ablation           -- NEW
 ) -> torch.Tensor:
     """
     Builds a toxic token mask where:
@@ -138,6 +188,9 @@ def build_toxic_token_mask(
       (2) the sum of those values
     """
     scores = influence_scores.detach()
+    if use_tfidf:
+        scores = tfidf_weight_scores(scores, input_ids, df_array, N)
+
     B, T = scores.shape
 
     # Compute threshold
@@ -196,28 +249,45 @@ def main():
     )
     logging.info(f"Building/loading toxic token mask for {args.model_name}...")
 
-    # Prepare the dataset.
-    train_dataset = get_tokenized_openwebtext(config, np.load(args.train_indices_path))
+    train_indices = np.load(args.train_indices_path)
+    if args.max_train_samples is not None:
+        train_indices = train_indices[:args.max_train_samples]
+    train_dataset = get_tokenized_openwebtext(config, train_indices)
     tokenizer = AutoTokenizer.from_pretrained(config['tokenizer']['path'], use_fast=True, trust_remote_code=True)
 
     save_path = (
         f"../data/toxic_token_masks/"
-        f"{args.factor_strategy}_{args.query_dataset}_{args.model_name}"
+        f"{args.factor_strategy}_{args.query_dataset}_{args.model_name}_kas_method"
         f"{'_' + args.save_id if args.save_id else ''}/"
         f"mask_toks={round(args.max_tokens / 1e6, 1)}m"
         f"_p={args.toxicity_threshold}"
         f"_w={args.window}.pt"
     )
+    vocab_size = tokenizer.vocab_size
+    df_array, N = compute_document_frequencies(train_dataset, vocab_size)
 
     if os.path.exists(save_path):
         mask = torch.load(save_path, map_location="cpu", weights_only=True)
-        logging.info(f"Loaded mask from {save_path}")
     else:
-        logging.info(f"Building toxic token mask and saving to {save_path}...")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         scores = Analyzer.load_file(args.scores_path)['all_modules'][0]
 
-        mask, _ = build_toxic_token_mask(scores, toxicity_threshold=args.toxicity_threshold, context_window=args.window, max_tokens=args.max_tokens)
+        # NEW: extract input_ids aligned with scores
+        input_ids = torch.tensor(
+            np.array([example["input_ids"] for example in train_dataset])
+        )
+        if args.max_train_samples is not None:
+            input_ids = input_ids[:args.max_train_samples]
+
+        mask, _ = build_toxic_token_mask(
+            scores,
+            input_ids=input_ids,       # NEW
+            df_array=df_array,         # NEW
+            N=N,                       # NEW
+            toxicity_threshold=args.toxicity_threshold,
+            context_window=args.window,
+            max_tokens=args.max_tokens,
+            use_tfidf=args.use_tfidf,            # NEW
+        )
         torch.save(mask, save_path)
     
     top_indices = torch.argsort((mask == True).sum(dim=1), descending=True).tolist()
@@ -233,3 +303,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    print("\nDone.")

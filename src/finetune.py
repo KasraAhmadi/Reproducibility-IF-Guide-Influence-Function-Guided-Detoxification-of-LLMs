@@ -149,6 +149,18 @@ def parse_args():
         default=1.0,
         help="Factor to multiply the negation mask by.",
     )
+    parser.add_argument(
+        "--max_train_samples",
+        type=int,
+        default=None,
+        help="Max number of training samples to score.",
+    )
+    parser.add_argument(
+        "--gradient_checkpointing",
+        action="store_true",
+        default=False,
+        help="Use gradient checkpointing to reduce memory at cost of speed.",
+    )
 
     return parser.parse_args() 
 
@@ -171,7 +183,7 @@ if __name__ == "__main__":
         "finetuning", 
         args.model_name, 
         args.save_id, 
-        time.strftime("%Y-%m-%d-%H-%M-%S")
+        time.strftime("%Y-%m-%d")
     )
     os.makedirs(args.save_dir, exist_ok=True)
 
@@ -188,6 +200,8 @@ if __name__ == "__main__":
     # Build train (finetuning) dataset
     train_indices = np.load(args.train_indices_path).tolist()
     valid_indices = np.load(args.valid_indices_path).tolist()
+    if args.max_train_samples is not None:
+        train_indices = train_indices[:args.max_train_samples]
     train_dataset = get_tokenized_openwebtext(config, indices=train_indices)
     eval_dataset = get_tokenized_openwebtext(config, indices=valid_indices)
     
