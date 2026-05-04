@@ -1,7 +1,6 @@
 ## IF-Guide: Influence Function-Guided Detoxification of LLMs 
-This repository contains the code for IF-Guide, the LLM detoxification technique introduced in our paper:
 
-- [IF-Guide: Influence Function-Guided Detoxification of LLMs](https://arxiv.org/abs/2506.01790)
+- IF-Guide: Influence Function-Guided Detoxification of LLMs
 
 &nbsp;
 
