@@ -91,6 +91,7 @@ This runs `build_toxic_token_mask.py`. It takes the following primary arguments:
 | `--query_dataset`      | The query dataset for constructing the query gradient. Currently, the only option is `RTP`. | 
 | `--inspection_idx` | We automatically print out the suppressed tokens for a single training example in red. This argument specifies which example to print based on its ranking (e.g., 0 is the highest-ranked training example).  | 
 | `--max_train_samples`    | Maximum training samples (to limit training size) |
+| `--use_tfidf`            | To use TFIDF (OUR METHOD)                          | \
 
 &nbsp;
 
